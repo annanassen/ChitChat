@@ -2,11 +2,19 @@ syntax = "proto3";
 option go_package = "ITUServer/grpc/proto";
 
 message Students {
-    repeated string students = 1;
+    string bMessage = 1;
 }
 
-message Empty {}
+message notEmpty {
+    string text = 1;
+}
 
 service ITUDatabase {
-    rpc GetStudents (Empty) returns (Students) {};
+    // Bidirectional streaming RPC (tunnel)
+    rpc GetStudents (stream notEmpty) returns (stream Students) {};
 }
+
+// Clients skal sende beskeder til serveren som så modtager serveren det
+// Så kører serveren en metode og broadcaster det?
+// Hvis vi bruger streams: stream starter i baggrunden en goroutine.
+// 

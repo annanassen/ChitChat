@@ -20,10 +20,6 @@ func (s *ITU_databaseServer) GetStudents(ctx context.Context, in *proto.Empty) (
 
 func main() {
 	server := &ITU_databaseServer{students: []string{}}
-	server.students = append(server.students, "John")
-	server.students = append(server.students, "Jane")
-	server.students = append(server.students, "Alice")
-	server.students = append(server.students, "Bob")
 
 	server.start_server()
 }
@@ -42,5 +38,4 @@ func (s *ITU_databaseServer) start_server() {
 	if err != nil {
 		log.Fatalf("Did not work")
 	}
-
 }
