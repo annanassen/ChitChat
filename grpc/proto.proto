@@ -1,17 +1,16 @@
 syntax = "proto3";
 option go_package = "ITUServer/grpc/proto";
 
-message Students {
-    string bMessage = 1;
+message ChitChat {
+    string Message = 1;
+    string username = 2;
+    string timestamp = 3;
+
 }
 
-message notEmpty {
-    string text = 1;
-}
-
-service ITUDatabase {
+service ChatDatabase {
     // Bidirectional streaming RPC (tunnel)
-    rpc GetStudents (stream notEmpty) returns (stream Students) {};
+    rpc ChitChatting (stream ChitChat) returns (stream ChitChat) {};
 }
 
 // Clients skal sende beskeder til serveren som så modtager serveren det
