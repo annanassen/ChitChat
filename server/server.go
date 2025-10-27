@@ -4,8 +4,8 @@ import (
 	proto "ITUServer/grpc"
 	"log"
 	"net"
+	"strconv"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -14,6 +14,7 @@ type ChatDatabaseServerITU_WOMEN_IN_STEM struct {
 	proto.UnimplementedChatDatabaseServer
 	mu      sync.RWMutex   //mutex prevents race conditions
 	clients []activeClient //(pizza)slice that keeps track of the clients on the server
+	clock   int64          //logical clock (lamport)
 }
 
 // active client that is connected to the stream
@@ -42,22 +43,28 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) ChitChatting(stream proto.ChatData
 	s.clients = append(s.clients, client) //adds client to slice
 	s.mu.Unlock()                         //unlocks
 
-	log.Printf("user %s joined the ChitChat!<3", username)
-
+	//log.Printf("user %s joined the ChitChat!<3", username)
+	time := s.IncrementClock() //increments the clock when a client joins the server
 	go s.BroadcastToAll(&proto.ChitChat{
-		Message:   "User:" + username + "joined the chat!<3",
-		Username:  "Server",
-		Timestamp: time.Now().Format(time.RFC3339),
+		Message:          "User " + username + " joined the chat (at logical time: " + strconv.FormatInt(time, 10) + ")",
+		Username:         "Server",
+		LamportTimestamp: time,
 	})
 
 	for {
 		msg, err := stream.Recv()
+
 		if err != nil { // when terminal is closed the user leaves the server.
-			log.Printf("%v left the chat! ;(", username) //måske behøver den ikk skrive noget 
-			s.RemoveClient(username)
+			leaveTime := s.IncrementClock() //increments clock when a client leaves the server
+			go s.BroadcastToAll(&proto.ChitChat{
+				Message:          "User " + username + " left the chat (at logical time: " + strconv.FormatInt(leaveTime, 10) + ")",
+				Username:         "Server",
+				LamportTimestamp: leaveTime,
+			})
 			break
 		}
-
+		serverTime := s.UpdateClock(msg.LamportTimestamp) //increments clock when it recieves a message
+		msg.LamportTimestamp = serverTime                 //
 		go s.BroadcastToAll(msg)
 		continue
 	}
@@ -117,4 +124,17 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) RemoveClient(username string) {
 
 	}
 
+}
+
+func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) IncrementClock() int64 {
+	s.clock++
+	return s.clock
+}
+
+func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) UpdateClock(receivedTime int64) int64 {
+	if receivedTime > s.clock {
+		s.clock = receivedTime
+	}
+	s.clock++
+	return s.clock
 }

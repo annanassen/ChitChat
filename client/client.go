@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,6 +20,7 @@ type chatClient struct {
 	username string
 	ctx      context.Context
 	wg       sync.WaitGroup
+	clock    int64
 }
 
 func main() {
@@ -61,6 +62,9 @@ func main() {
 func connectClient(reader *bufio.Reader) string {
 	fmt.Println("Please enter your username")
 	username, _ := reader.ReadString('\n')
+	//the \n argument tell the reader to stop reading when it finds a newline character
+	//the newline character will be included in the read input
+	username = strings.TrimSpace(username) //we thrim away the newline character
 
 	if username == "" {
 		fmt.Println("Please enter a username of at least 1 character")
@@ -92,11 +96,12 @@ func (c *chatClient) initiateSmallTalk(reader *bufio.Reader) {
 			fmt.Println("Message is too long. Maximum is 128 characters. Yours %d", len(message))
 			continue
 		}
+		sendTime := c.IncrementClock() //increment (local) clock when client sends a message
 
 		chitChatMsg := &proto.ChitChat{
-			Username:  c.username,
-			Message:   message,
-			Timestamp: time.Now().Format(time.RFC3339),
+			Username:         c.username,
+			Message:          message,
+			LamportTimestamp: sendTime,
 		}
 
 		err := c.stream.Send(chitChatMsg)
@@ -117,12 +122,27 @@ func (c *chatClient) receiveMessage() {
 		if err != nil {
 			log.Fatalf("something went wrong:", err)
 		}
+		//updates the clock when receiving a message. compares the local logical time with the received one. takes the max and increment
+		c.UpdateClock(msg.LamportTimestamp)
 		if msg.Username == "Server" {
-			fmt.Println(msg.Message)
+			fmt.Printf("[Server] %s", msg.Message)
 		} else {
-			fmt.Printf("%s: %v", msg.Username, msg.Message)
+			fmt.Printf("%s: %s (Logical Time: %d)\n", msg.Username, msg.Message, msg.LamportTimestamp)
 		}
 	}
+}
+
+func (c *chatClient) IncrementClock() int64 {
+	c.clock++
+	return c.clock
+}
+
+func (c *chatClient) UpdateClock(receivedTime int64) int64 {
+	if receivedTime > c.clock {
+		c.clock = receivedTime
+	}
+	c.clock++
+	return c.clock
 }
 
 //dont make two goroutines (Publish and Read)

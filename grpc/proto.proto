@@ -2,9 +2,9 @@ syntax = "proto3";
 option go_package = "ITUServer/grpc/proto";
 
 message ChitChat {
-    string Message = 1;
+    string message = 1;
     string username = 2;
-    string timestamp = 3;
+    int64 lamport_timestamp = 3;
 
 }
 
