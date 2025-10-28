@@ -43,7 +43,8 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) ChitChatting(stream proto.ChatData
 	s.clients = append(s.clients, client) //adds client to slice
 	s.mu.Unlock()                         //unlocks
 
-	//log.Printf("user %s joined the ChitChat!<3", username)
+	log.Printf("[Server] %s has been registered in the client list!", username)
+
 	time := s.IncrementClock() //increments the clock when a client joins the server
 	go s.BroadcastToAll(&proto.ChitChat{
 		Message:          "User " + username + " joined the chat (at logical time: " + strconv.FormatInt(time, 10) + ")",
@@ -55,6 +56,7 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) ChitChatting(stream proto.ChatData
 		msg, err := stream.Recv()
 
 		if err != nil { // when terminal is closed the user leaves the server.
+			s.RemoveClient(username)
 			leaveTime := s.IncrementClock() //increments clock when a client leaves the server
 			go s.BroadcastToAll(&proto.ChitChat{
 				Message:          "User " + username + " left the chat (at logical time: " + strconv.FormatInt(leaveTime, 10) + ")",
@@ -63,6 +65,9 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) ChitChatting(stream proto.ChatData
 			})
 			break
 		}
+
+		log.Printf("[Server] Received message from %s", msg.Username) // If it wasn't because a client left
+
 		serverTime := s.UpdateClock(msg.LamportTimestamp) //increments clock when it recieves a message
 		msg.LamportTimestamp = serverTime                 //
 		go s.BroadcastToAll(msg)
@@ -75,6 +80,7 @@ func main() {
 
 	server := &ChatDatabaseServerITU_WOMEN_IN_STEM{}
 
+	log.Println("[Server] Starting server...")
 	server.start_server()
 }
 
@@ -84,15 +90,15 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) start_server() {
 	if err != nil {
 		log.Fatalf("Did not work")
 	}
-
 	proto.RegisterChatDatabaseServer(grpcServer, s)
+
+	log.Println("[Server] Startup successful.")
 
 	err = grpcServer.Serve(listener)
 
 	if err != nil {
-		log.Fatalf("Did not work")
+		log.Fatalf("Something went wrong...")
 	}
-	log.Println("Server opened")
 }
 
 func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) BroadcastToAll(msg *proto.ChitChat) {
@@ -105,8 +111,9 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) BroadcastToAll(msg *proto.ChitChat
 func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) SendToOne(msg *proto.ChitChat, stream proto.ChatDatabase_ChitChattingServer, username string) {
 	err := stream.Send(msg) //sends message to client
 	if err != nil {         //in case it fails:
-		log.Printf("Failed to send message to %s: %v", username, err)
+		log.Printf("[Server] Failed to send message to %s: %v", username, err)
 	}
+	log.Printf("[Server] Successfully sent %s's message to %s", msg.Username, username)
 
 }
 
@@ -117,8 +124,7 @@ func (s *ChatDatabaseServerITU_WOMEN_IN_STEM) RemoveClient(username string) {
 	for i, client := range s.clients {
 		if client.username == username {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
-			log.Printf("User %s removed from client list", username)
-
+			log.Printf("[Server] Removed user %s from the client list", username)
 			break
 		}
 

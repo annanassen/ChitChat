@@ -86,6 +86,7 @@ func (c *chatClient) initiateSmallTalk(reader *bufio.Reader) {
 
 	for { //loop for messages the client sends
 		message, _ := reader.ReadString('\n')
+		message = strings.TrimSpace(message)
 
 		if message == "/quit" {
 			fmt.Println("you quit. but i will find you.")
@@ -93,7 +94,7 @@ func (c *chatClient) initiateSmallTalk(reader *bufio.Reader) {
 		}
 
 		if len(message) > 128 {
-			fmt.Println("Message is too long. Maximum is 128 characters. Yours %d", len(message))
+			fmt.Printf("Message is too long. Maximum is 128 characters. Yours %d \n", len(message))
 			continue
 		}
 		sendTime := c.IncrementClock() //increment (local) clock when client sends a message
@@ -125,7 +126,7 @@ func (c *chatClient) receiveMessage() {
 		//updates the clock when receiving a message. compares the local logical time with the received one. takes the max and increment
 		c.UpdateClock(msg.LamportTimestamp)
 		if msg.Username == "Server" {
-			fmt.Printf("[Server] %s", msg.Message)
+			fmt.Printf("[Server] %s \n", msg.Message)
 		} else {
 			fmt.Printf("%s: %s (Logical Time: %d)\n", msg.Username, msg.Message, msg.LamportTimestamp)
 		}
